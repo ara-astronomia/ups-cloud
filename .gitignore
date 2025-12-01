@@ -1,0 +1,27 @@
+# ------------------------------------
+# Ambienti Virtuali Python
+# ------------------------------------
+# Ignora la cartella dell'ambiente virtuale
+.venv/
+venv/
+env/
+*venv*
+
+# ------------------------------------
+# File Generati / Cache
+# ------------------------------------
+# File di cache Python (pyc, pyo)
+__pycache__/
+*.py[cod]
+
+# File di configurazione/log (specifici del tuo ambiente)
+config.ini.local  # Se usi una copia locale
+*.log
+.coverage
+
+# ------------------------------------
+# Specifici di IDE/OS
+# ------------------------------------
+.vscode/
+.idea/
+.DS_Store
