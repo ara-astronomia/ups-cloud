@@ -1,2 +1,44 @@
 # ups-cloud
 Monitoring UPS Observatory Virginio Cesarini
+
+Monitoraggio UPS tramite NUT (Network UPS Tools)
+Questa applicazione web, sviluppata con Flask e la libreria python-nut2, 
+fornisce una dashboard per monitorare in tempo reale lo stato degli UPS 
+gestiti dal demone NUT su un server remoto.
+
+
+⚙️ Prerequisiti
+Python 3.8+ installato sul sistema in cui si desidera eseguire la dashboard (il tuo PC locale).
+
+Il demone NUT (upsd) installato e in esecuzione sul server, configurato per accettare connessioni remote sulla porta 3493 (controllare upsd.conf).
+
+Configurazione ed esecuzione:
+
+1. Creazione dell'Ambiente Virtuale (.venv)
+Si consiglia vivamente di utilizzare un ambiente virtuale per isolare le dipendenze del progetto dal sistema operativo.
+
+python3 -m venv .venv
+
+2. Attivazione dell'Ambiente
+source .venv/bin/activate
+
+3. Installazione delle Dipendenze
+pip install -r requirements.txt
+
+
+Configurazione del Server NUT
+# /etc/nut/upsd.conf
+
+# Ascolto locale (per upsc, servizi interni)
+LISTEN 127.0.0.1 3493 
+# Ascolto di rete (necessario per l'app Flask sul PC)
+LISTEN 192.168.178.22 3493
+# Ascolto da qualsiasi indirizzo
+LISTEN 0.0.0.0 3493
+
+Avvio dell'Applicazione
+attivazione ambinete virtuale 
+python app.py
+
+per disattivare l'ambiente virtuale
+deactivate
