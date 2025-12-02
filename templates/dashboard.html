@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <title>Monitoraggio UPS - NUT</title>
+    <style>
+        body { font-family: sans-serif; margin: 20px; background-color: #f4f4f9; }
+        
+        h2 { border-bottom: 2px solid #333; padding-bottom: 5px; }
+        .error { color: white; background-color: #c0392b; padding: 10px; border-radius: 5px; font-weight: bold; }
+        .warning { color: black; background-color: #f39c12; padding: 5px; border-radius: 3px; }
+        .critical { color: red; font-weight: bold; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+        th { background-color: #f2f2f2; }
+
+        /* Nuovo contenitore per affiancare gli UPS */
+        .ups-grid-container {
+            display: flex;         /* Abilita Flexbox */
+            flex-wrap: wrap;       /* Consente ai box di andare a capo su schermi piccoli */
+            gap: 20px;             /* Spazio tra i box */
+        }
+
+        /* Regola per le singole schede UPS */
+        .ups-box {
+            /* Permette a ogni box di occupare metà dello spazio meno il gap, e di crescere */
+            flex: 1 1 45%; 
+            min-width: 300px; /* Assicura che i box non siano troppo stretti */
+            
+            border: 1px solid #ccc; 
+            padding: 15px; 
+            margin-bottom: 0px; /* Rimuovi il margin-bottom se usi il gap */
+            background-color: white; 
+            border-radius: 8px;
+            box-shadow: 2px 2px 5px rgba(0,0,0,0.1);
+        }
+    </style>
+</head>
+<body>
+
+    <h1>⚡ Stato Monitoraggio UPS (via NUT)</h1>
+
+    {% if 'error' in data %}
+        <div class="error">
+            <h3>ERRORE DI CONNESSIONE A NUT</h3>
+            <p>{{ data['error'] }}</p>
+            <p>Verifica che il demone NUT (upsd) sia in esecuzione su **{{ NUT_HOST }}** sulla porta **{{ NUT_PORT }}**.</p>
+        </div>
+    {% else %}
+    <div class="ups-grid-container">
+        {% for ups_name, ups_info in data.items() %}
+            <div class="ups-box">
+                <h2>UPS <span style="font-weight: bold; color: #007bff;">{{ ups_info.rooms }}</span> : {{ ups_name }}</h2>
+                
+                <p>Ultimo Aggiornamento: {{ ups_info.last_update }}</p>
+
+                <h3>Stato Corrente (Flags)</h3>
+                {% set status_text = ups_info.vars['ups.status'] | default('Sconosciuto') | replace(' ', ', ') %}
+                
+                {% if 'OB' in status_text or 'LOWBATT' in status_text %}
+                    <p class="critical">Stato: {{ status_text }}</p>
+                    
+                    {% if 'OB' in status_text %}
+                        <p class="warning">ATTENZIONE: UPS sta funzionando a batteria (On Battery - OB)!</p>
+                    {% endif %}
+                    
+                {% else %}
+                    <p>Stato: {{ status_text }}</p>
+                {% endif %}
+                <small>(OL = Online, OB = On Battery, LB = Low Battery)</small>
+                
+                <h3>Dettagli Tecnici</h3>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Variabile</th>
+                            <th>Valore</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% set vars_to_show = ['input.voltage', 'battery.charge', 'battery.runtime', 'ups.load', 'ups.temperature'] %}
+                        
+                        {% for var_name, var_value in ups_info.vars.items() %}
+                            {% if detail == 'full' or var_name in vars_to_show %}
+                            <tr>
+                                <td>{{ var_name }}</td>
+                                <td>{{ var_value }}</td>
+                            </tr>
+                            {% endif %}
+                        {% endfor %}
+                    </tbody>
+                </table>
+                </div>
+        {% endfor %}
+    </div>
+        <p>
+            
+            {% if detail == 'full' %}
+                <a href="/">Visualizza Dettagli Standard</a>
+            {% else %}
+                <a href="/?dettaglio=full">Visualizza Dettagli Completi</a>
+            {% endif %}
+        </p>
+        
+    {% endif %}
+
+    </body>
+</html>
