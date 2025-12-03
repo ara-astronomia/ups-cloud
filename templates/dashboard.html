@@ -2,6 +2,7 @@
 <html lang="it">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Monitoraggio UPS - NUT</title>
     <style>
         body { font-family: sans-serif; margin: 20px; background-color: #f4f4f9; }
@@ -10,99 +11,153 @@
         .error { color: white; background-color: #c0392b; padding: 10px; border-radius: 5px; font-weight: bold; }
         .warning { color: black; background-color: #f39c12; padding: 5px; border-radius: 3px; }
         .critical { color: red; font-weight: bold; }
-        table { width: 100%; border-collapse: collapse; }
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; }
         th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
         th { background-color: #f2f2f2; }
 
         /* Nuovo contenitore per affiancare gli UPS */
         .ups-grid-container {
-            display: flex;         /* Abilita Flexbox */
-            flex-wrap: wrap;       /* Consente ai box di andare a capo su schermi piccoli */
-            gap: 20px;             /* Spazio tra i box */
+            display: flex;         
+            flex-wrap: wrap;       
+            gap: 20px;             
+            margin-top: 20px;
         }
 
         /* Regola per le singole schede UPS */
         .ups-box {
-            /* Permette a ogni box di occupare metà dello spazio meno il gap, e di crescere */
             flex: 1 1 45%; 
-            min-width: 300px; /* Assicura che i box non siano troppo stretti */
-            
+            min-width: 300px; 
             border: 1px solid #ccc; 
             padding: 15px; 
-            margin-bottom: 0px; /* Rimuovi il margin-bottom se usi il gap */
             background-color: white; 
             border-radius: 8px;
             box-shadow: 2px 2px 5px rgba(0,0,0,0.1);
         }
+
+        /* Stile specifico per i Canvas */
+        .chart-container {
+            margin-top: 15px;
+            padding-top: 10px;
+            border-top: 1px dashed #ddd;
+        }
+        
     </style>
+    <!-- Inclusione della libreria Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <!-- 1. Definizione della variabile globale per passare i dati JSON a JavaScript -->
+    <script>
+        // CORREZIONE per SyntaxError: Utilizziamo un approccio più robusto con JSON.parse.
+        // Il filtro 'tojson | safe' assicura che il contenuto sia una stringa JSON valida.
+        const allUpsDataString = '{{ data | default({}) | tojson | safe }}';
+        const allUpsData = JSON.parse(allUpsDataString);
+    </script>
+
+    <!-- 2. Inclusione del tuo file JS (usando url_for per il percorso corretto) -->
+    <script src="{{ url_for('static', filename='chart.js') }}"></script>
+    
 </head>
 <body>
 
     <h1>⚡ Stato Monitoraggio UPS (via NUT)</h1>
 
+    <!-- INIZIO BLOCCO LOGICA GENERALE -->
     {% if 'error' in data %}
+        <!-- MESSAGGIO DI ERRORE DI CONNESSIONE -->
         <div class="error">
             <h3>ERRORE DI CONNESSIONE A NUT</h3>
             <p>{{ data['error'] }}</p>
             <p>Verifica che il demone NUT (upsd) sia in esecuzione su **{{ NUT_HOST }}** sulla porta **{{ NUT_PORT }}**.</p>
         </div>
+    
     {% else %}
-    <div class="ups-grid-container">
-        {% for ups_name, ups_info in data.items() %}
-            <div class="ups-box">
-                <h2>UPS <span style="font-weight: bold; color: #007bff;">{{ ups_info.rooms }}</span> : {{ ups_name }}</h2>
-                
-                <p>Ultimo Aggiornamento: {{ ups_info.last_update }}</p>
-
-                <h3>Stato Corrente (Flags)</h3>
-                {% set status_text = ups_info.vars['ups.status'] | default('Sconosciuto') | replace(' ', ', ') %}
-                
-                {% if 'OB' in status_text or 'LOWBATT' in status_text %}
-                    <p class="critical">Stato: {{ status_text }}</p>
-                    
-                    {% if 'OB' in status_text %}
-                        <p class="warning">ATTENZIONE: UPS sta funzionando a batteria (On Battery - OB)!</p>
-                    {% endif %}
-                    
-                {% else %}
-                    <p>Stato: {{ status_text }}</p>
-                {% endif %}
-                <small>(OL = Online, OB = On Battery, LB = Low Battery)</small>
-                
-                <h3>Dettagli Tecnici</h3>
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Variabile</th>
-                            <th>Valore</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% set vars_to_show = ['input.voltage', 'battery.charge', 'battery.runtime', 'ups.load', 'ups.temperature'] %}
-                        
-                        {% for var_name, var_value in ups_info.vars.items() %}
-                            {% if detail == 'full' or var_name in vars_to_show %}
-                            <tr>
-                                <td>{{ var_name }}</td>
-                                <td>{{ var_value }}</td>
-                            </tr>
-                            {% endif %}
-                        {% endfor %}
-                    </tbody>
-                </table>
-                </div>
-        {% endfor %}
-    </div>
+    
+        <!-- CONTENUTO PRINCIPALE DELLA DASHBOARD -->
+        
         <p>
-            
+            <!-- 4. LOGICA CORRETTA PER IL DETTAGLIO: usa la variabile 'detail' -->
             {% if detail == 'full' %}
                 <a href="/">Visualizza Dettagli Standard</a>
             {% else %}
                 <a href="/?dettaglio=full">Visualizza Dettagli Completi</a>
             {% endif %}
         </p>
+
+        <div class="ups-grid-container">
+            
+            <!-- CICLO PRINCIPALE SUGLI UPS -->
+            {% for ups_name, ups_info in data.items() %}
+                <div class="ups-box">
+                    <!-- 3. CORREZIONE: Stile del nome dell'UPS (UPS Name è la variabile ups_name) -->
+                    <h2>UPS {{ ups_info.rooms }} : <span style="font-weight: bold; color: #007bff;">{{ ups_name }}</span></h2>
+                    
+                    <p>Ultimo Aggiornamento: {{ ups_info.last_update }}</p>
+
+                    <h3>Stato Corrente (Flags)</h3>
+                    {% set status_text = ups_info.vars['ups.status'] | default('Sconosciuto') | replace(' ', ', ') %}
+                    
+                    {% if 'OB' in status_text or 'LOWBATT' in status_text %}
+                        <p class="critical">Stato: {{ status_text }}</p>
+                        
+                        {% if 'OB' in status_text %}
+                            <p class="warning">ATTENZIONE: UPS sta funzionando a batteria (On Battery - OB)!</p>
+                        {% endif %}
+                        
+                    {% else %}
+                        <p>Stato: {{ status_text }}</p>
+                    {% endif %}
+                    <small>(OL = Online, OB = On Battery, LB = Low Battery)</small>
+                    
+                    <h3>Dettagli Tecnici</h3>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Variabile</th>
+                                <th>Valore</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% set vars_to_show = ['input.voltage', 'battery.charge', 'battery.runtime', 'ups.load', 'ups.temperature'] %}
+                            
+                            {% for var_name, var_value in ups_info.vars.items() %}
+                                {% if detail == 'full' or var_name in vars_to_show %}
+                                <tr>
+                                    <td>{{ var_name }}</td>
+                                    <td>{{ var_value }}</td>
+                                </tr>
+                                {% endif %}
+                            {% endfor %}
+                        </tbody>
+                    </table>
+
+                    <!-- 5. INSERIMENTO CORRETTO DEI TAG CANVAS DENTRO IL CICLO -->
+                    <div class="chart-container">
+                        <!-- SELETTORE PERIODI -->
+                        <div class="period-selector">
+                            <input type="radio" id="1d-{{ ups_name }}" name="period-{{ ups_name }}" value="1d" checked 
+                                onclick="updateChartPeriod('{{ ups_name }}', '1d')">
+                            <label for="1d-{{ ups_name }}">24 Ore</label>
+
+                            <input type="radio" id="1w-{{ ups_name }}" name="period-{{ ups_name }}" value="1w" 
+                                onclick="updateChartPeriod('{{ ups_name }}', '1w')">
+                            <label for="1w-{{ ups_name }}">1 Settimana</label>
+
+                            <input type="radio" id="1m-{{ ups_name }}" name="period-{{ ups_name }}" value="1m" 
+                                onclick="updateChartPeriod('{{ ups_name }}', '1m')">
+                            <label for="1m-{{ ups_name }}">1 Mese</label>
+                        </div>
+                        <h4>Storico Tensione (Ultime 24h)</h4>
+                        <canvas id="chart-voltage-{{ ups_name }}"></canvas>
+                        
+                        <h4>Storico Batteria (Ultime 24h)</h4>
+                        <canvas id="chart-charge-{{ ups_name }}"></canvas>
+                    </div>
+
+                </div> <!-- Chiusura di ups-box -->
+            {% endfor %}
+        </div> <!-- Chiusura di ups-grid-container -->
         
     {% endif %}
 
-    </body>
+</body>
 </html>
