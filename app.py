@@ -1,20 +1,20 @@
 import time
 import configparser 
+from datetime import datetime
 from flask import Flask, render_template, request, jsonify
 from nut2 import PyNUTClient
 import os
+import sqlite3
 
-# --- LETTURA CONFIGURAZIONE DA FILE ---
 config = configparser.ConfigParser()
-
-# Costruisce il percorso completo del file config.ini
 BASE_DIR = os.path.dirname(os.path.abspath(__file__)) 
-# Assuming config.ini is still located in: ../ups-cloud/config.ini
 CONFIG_PATH = os.path.join(BASE_DIR, 'config.ini') 
 
 # Variabili di fallback
 DEFAULT_HOST = 'localhost'
 DEFAULT_PORT = 3493
+
+DATABASE = 'ups_data.db'
 
 
 try:
@@ -26,19 +26,14 @@ try:
     ROOMS_MAP = {}
     if config.has_section('rooms'):
         ROOMS_MAP = dict(config.items('rooms'))
-        print(f"Mappe delle stanze caricate: {ROOMS_MAP}")
+        #print(f"Mappe delle stanze caricate: {ROOMS_MAP}")
     else:
         print("WARNING: Sezione [rooms] non trovata nel config.ini. Le stanze non verranno visualizzate.")
 
-    # 2. Leggi i parametri NUT dalla sezione [ups]
-    # Usiamo 'hostname' per HOST
+
     NUT_HOST = config.get('ups', 'hostname')
-    print(f"Lettura NUT_HOST dal config: {NUT_HOST}")
-    # Usiamo 'port' per PORT e leggiamo come intero
+    #print(f"Lettura NUT_HOST dal config: {NUT_HOST}")
     NUT_PORT = config.getint('ups', 'port', fallback=DEFAULT_PORT) 
-    
-    # Opzionale: puoi leggere la lista degli UPS se volessi filtrarli in app.py
-    # UPS_LIST = config.get('ups', 'ups_list', fallback='').split(',')
     
 except (configparser.NoSectionError, configparser.NoOptionError, FileNotFoundError) as e:
     print(f"ERRORE di configurazione: {e}. Uso i valori di default per NUT.")
@@ -49,33 +44,69 @@ except Exception as e:
     NUT_HOST = DEFAULT_HOST
     NUT_PORT = DEFAULT_PORT
 
-print(f"Configurazione NUT letta: HOST={NUT_HOST}, PORT={NUT_PORT}")
-
+#print(f"Configurazione NUT letta: HOST={NUT_HOST}, PORT={NUT_PORT}")
 # --- SERVER FLASK ---
 app = Flask(__name__)
 
-# Funzione per connettersi a NUT e recuperare i dati
-def get_ups_status():
+def init_db():
+    conn = sqlite3.connect(DATABASE)
+    cursor = conn.cursor()
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS history (
+            timestamp INTEGER,
+            ups_name TEXT,
+            input_voltage REAL,
+            battery_charge REAL,
+            status TEXT
+        )
+    """)
+    conn.commit()
+    conn.close()
 
-    print("Si connette a upsd e recupera lo stato attuale di tutti gli UPS configurati")
+def log_data(name, variables, status):
+    """Registra i dati attuali nel database."""
+    conn = sqlite3.connect(DATABASE)
+    cursor = conn.cursor()
+    
+    timestamp = int(time.time())
+
+    input_voltage = variables.get('input.voltage', '0.0') # Fallback per evitare errori
+    battery_charge = variables.get('battery.charge', '0.0') # Fallback per evitare errori
+    
+    try:
+        input_voltage = float(input_voltage.split(' ')[0])
+    except:
+        input_voltage = 0.0
+        
+    try:
+        battery_charge = float(battery_charge.split(' ')[0])
+    except:
+        battery_charge = 0.0
+    
+    if input_voltage > 0.0 or battery_charge > 0.0:
+        cursor.execute(
+            "INSERT INTO history VALUES (?, ?, ?, ?, ?)",
+            (timestamp, name, input_voltage, battery_charge, status)
+        )
+    conn.commit()
+    conn.close()
+
+def get_ups_status():
+    #print("Si connette a upsd e recupera lo stato attuale di tutti gli UPS configurati")
 
     data = {}
     
     try:
-        # Crea il client NUT
         client = PyNUTClient(host=NUT_HOST, port=NUT_PORT)
-        print(f"Tentativo di connessione a NUT su {NUT_HOST}:{NUT_PORT}")
-        
-        # Ottieni la lista dei nomi degli UPS configurati (es. 'myups1', 'myups2')
+        print(f"Tentativo di connessione a NUT su {NUT_HOST}:{NUT_PORT}")        
         ups_names = client.list_ups()
         
         for name in ups_names:
-            # Recupera le variabili (i dati) per ogni UPS
             variables = client.list_vars(name)
-            room_name = ROOMS_MAP.get(name.lower(), 'N/D') # Usa .lower() per sicurezza, e 'N/D' come fallback
+            room_name = ROOMS_MAP.get(name.lower(), 'N/D') 
             print(room_name)
-            
-            # Aggiorna il dizionario data
+            log_data(name, variables, status=variables.get('ups.status', 'unknown'))
+
             data[name] = {
                 'vars': variables,
                 'last_update': time.strftime("%H:%M:%S"),
@@ -84,7 +115,6 @@ def get_ups_status():
             print(data)
             
     except Exception as e:
-        # Gestione degli errori di connessione a NUT
         data['error'] = f"Errore di connessione a NUT: {e}"
         print(f"Errore NUT: {e}")
         
@@ -93,35 +123,61 @@ def get_ups_status():
 
 @app.route('/')
 def dashboard():
-    # 1. Recupera i dati aggiornati
-    all_ups_data = get_ups_status()
-    
-    # 2. Gestione delle "Flag" (Parametri di Query)
-    # Esempio: ?ups=ups1 per mostrare solo un UPS
-    # Esempio: ?dettaglio=full per mostrare tutte le variabili
-    
-    # Parametro per filtrare quale UPS mostrare
-    filter_ups = request.args.get('ups', 'all') 
-    
-    # Parametro per il livello di dettaglio dei dati
-    detail_level = request.args.get('dettaglio', 'standard') 
+    detail_param = request.args.get('dettaglio')
+    data = get_ups_status()
 
-    # Filtra i dati in base al parametro 'ups'
-    if filter_ups != 'all' and filter_ups in all_ups_data:
-        data_to_display = {filter_ups: all_ups_data[filter_ups]}
+    if isinstance(data, dict) and 'error' not in data:
+        ups_names_list = list(data.keys())
     else:
-        data_to_display = all_ups_data
+        ups_names_list = []
+        
+    return render_template('dashboard.html', 
+                           data=data, 
+                           ups_names=ups_names_list,
+                           detail=detail_param,)
 
-    # 3. Renderizza il template HTML
-    return render_template(
-        'dashboard.html', 
-        data=data_to_display,
-        detail=detail_level,
-        filter_ups=filter_ups
-    )
+@app.route('/api/history', methods=['GET'])
+def history_data():
+    """
+    ENDPOINT API: Restituisce i dati storici per un UPS e un periodo specifici.
+    L'URL deve essere: /api/history?ups=<nome_ups>&period=<1d|1w|1m>
+    """
+    ups_name = request.args.get('ups')
+    period = request.args.get('period', '1d') 
+    
+    if not ups_name:
+        return jsonify({"error": "Parametro 'ups' richiesto"}), 400
+
+    conn = sqlite3.connect(DATABASE)
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+    
+    # Calcolo del limite temporale in base al periodo richiesto
+    now = int(time.time())
+    
+    if period == '1w':
+        time_limit = now - (7 * 24 * 3600) 
+        print(f"Recupero dati storici per {ups_name}: 1 Settimana ({datetime.fromtimestamp(time_limit).strftime('%Y-%m-%d %H:%M:%S')})")
+    elif period == '1m':
+        time_limit = now - (30 * 24 * 3600) 
+        print(f"Recupero dati storici per {ups_name}: 1 Mese ({datetime.fromtimestamp(time_limit).strftime('%Y-%m-%d %H:%M:%S')})")
+    else: 
+        time_limit = now - 86400 
+        print(f"Recupero dati storici per {ups_name}: 24 Ore ({datetime.fromtimestamp(time_limit).strftime('%Y-%m-%d %H:%M:%S')})")
+    
+    # query SQL per limite di tempo e UPS
+    data = cursor.execute(
+        "SELECT timestamp, input_voltage, battery_charge FROM history WHERE ups_name=? AND timestamp > ? ORDER BY timestamp", 
+        (ups_name, time_limit)
+    ).fetchall()
+    
+    conn.close()
+    
+    return jsonify([dict(row) for row in data])
 
 if __name__ == '__main__':
-    # Esegui un test di connessione iniziale
+    init_db() 
+    
     print("--- Test di connessione a NUT all'avvio ---")
     initial_data = get_ups_status()
     if 'error' in initial_data:
