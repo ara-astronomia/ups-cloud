@@ -8,6 +8,11 @@ env/
 *venv*
 
 # ------------------------------------
+#Database SQLite locale (da mantenere escluso)
+# ------------------------------------
+ups_data.db
+
+# ------------------------------------
 # File Generati / Cache
 # ------------------------------------
 # File di cache Python (pyc, pyo)
