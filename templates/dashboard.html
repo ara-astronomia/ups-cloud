@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Monitoraggio UPS - NUT</title>
+    <script src="https://cdn.tailwindcss.com"></script>
     <style>
         body { font-family: sans-serif; margin: 20px; background-color: #f4f4f9; }
         
@@ -39,7 +40,6 @@
             margin-top: 15px;
             padding-top: 10px;
             border-top: 1px dashed #ddd;
-        
         }
         
     </style>
@@ -52,15 +52,24 @@
         // Il filtro 'tojson | safe' assicura che il contenuto sia una stringa JSON valida.
         const allUpsDataString = '{{ data | default({}) | tojson | safe }}';
         const allUpsData = JSON.parse(allUpsDataString);
+        
+        // Dichiarazione della funzione updateChartPeriod (definita in chart.js) per l'uso inline nell'HTML
+        function updateChartPeriod(upsName, period) {
+            // Sarà riempita da chart.js
+        }
     </script>
 
     <!-- 2. Inclusione del tuo file JS (usando url_for per il percorso corretto) -->
     <script src="{{ url_for('static', filename='chart.js') }}"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
     
 </head>
 <body>
 
-    <h1>⚡ Stato Monitoraggio UPS (via NUT)</h1>
+    <h2 class="text-3xl font-bold mb-8">
+        <img src="/static/images/logo_ara.png" alt="Logo Ara" class="h-12 inline-block align-middle mr-3" />
+        ⚡ Stato Monitoraggio UPS (via NUT) Osservatorio virginio Cesarini  A.R.A.
+    </h2>
 
     <!-- INIZIO BLOCCO LOGICA GENERALE -->
     {% if 'error' in data %}
@@ -130,13 +139,11 @@
                             {% endfor %}
                         </tbody>
                     </table>
-
-                    <!-- Contenitore principale dei grafici: Diventa Flexbox e responsive -->
-                    <div class="flex flex-col lg:flex-row gap-4 mb-8" id="{{ ups_name }}-charts-container">
-
-                        <!-- SELETTORE PERIODI - Lo mettiamo sopra entrambi i grafici o lo separiamo. 
-                            Per semplicità e coesione, lo lasciamo qui, ma lo rendiamo un div separato -->
-                        <div id="{{ ups_name }}-period-buttons" class="w-full flex justify-center space-x-2 p-2 bg-gray-100 rounded-t-lg shadow-inner">
+                    
+                    <div class="chart-container">
+                        
+                        <!-- SELETTORE PERIODI -->
+                        <div id="{{ ups_name }}-period-buttons" class="w-full flex justify-center space-x-2 p-2 bg-gray-100 rounded-lg shadow-inner mb-4">
                             <button data-period="1d" onclick="updateChartPeriod('{{ ups_name }}', '1d')" 
                                     class="px-3 py-1 text-sm rounded-lg bg-blue-600 text-white transition duration-150">
                                 24 Ore
@@ -151,20 +158,30 @@
                             </button>
                         </div>
                         
-                        <!-- Contenitore del Grafico Tensione (Occupa metà larghezza su schermi grandi) -->
-                        <div class="w-full lg:w-1/2 p-4 bg-white shadow-xl rounded-lg h-[400px]">
-                            <h4 class="text-lg font-semibold text-gray-700 mb-3">Storico Tensione</h4>
-                            <!-- Il canvas prenderà il 100% dell'altezza e larghezza del DIV genitore -->
-                            <canvas id="chart-voltage-{{ ups_name }}"></canvas>
+                        <!-- Contenitore dei grafici con limite di altezza applicato e overflow nascosto -->
+                        <div class="flex flex-col lg:flex-row gap-4 mb-8 overflow-y-hidden" id="{{ ups_name }}-charts-container" style="max-height: 50vh; min-height: 300px;">
+                            
+                            <!-- Contenitore del Grafico Tensione: Flex container verticale -->
+                            <div class="w-full lg:w-1/2 p-4 bg-white shadow-xl rounded-lg h-full min-h-0 flex flex-col">
+                                <h4 class="text-lg font-semibold text-gray-700 mb-3">Storico Tensione</h4>
+                                <!-- NUOVO WRAPPER: Prende lo spazio con flex-grow e imposta la posizione relativa -->
+                                <div class="relative flex-grow">
+                                    <!-- Canvas: 100% di larghezza e altezza del wrapper -->
+                                    <canvas id="chart-voltage-{{ ups_name }}" class="w-full h-full"></canvas>
+                                </div>
+                            </div>
+                            
+                            <!-- Contenitore del Grafico Batteria: Flex container verticale -->
+                            <div class="w-full lg:w-1/2 p-4 bg-white shadow-xl rounded-lg h-full min-h-0 flex flex-col">
+                                <h4 class="text-lg font-semibold text-gray-700 mb-3">Storico Batteria</h4>
+                                <!-- NUOVO WRAPPER: Prende lo spazio con flex-grow e imposta la posizione relativa -->
+                                <div class="relative flex-grow">
+                                    <!-- Canvas: 100% di larghezza e altezza del wrapper -->
+                                    <canvas id="chart-charge-{{ ups_name }}" class="w-full h-full"></canvas>
+                                </div>
+                            </div>
                         </div>
-                        
-                        <!-- Contenitore del Grafico Batteria (Occupa metà larghezza su schermi grandi) -->
-                        <div class="w-full lg:w-1/2 p-4 bg-white shadow-xl rounded-lg h-[400px]">
-                            <h4 class="text-lg font-semibold text-gray-700 mb-3">Storico Batteria</h4>
-                            <!-- Il canvas prenderà il 100% dell'altezza e larghezza del DIV genitore -->
-                            <canvas id="chart-charge-{{ ups_name }}"></canvas>
-                        </div>
-                    </div>
+                    </div>    
 
                 </div> <!-- Chiusura di ups-box -->
             {% endfor %}
