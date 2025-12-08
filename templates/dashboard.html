@@ -39,6 +39,7 @@
             margin-top: 15px;
             padding-top: 10px;
             border-top: 1px dashed #ddd;
+        
         }
         
     </style>
@@ -130,27 +131,39 @@
                         </tbody>
                     </table>
 
-                    <!-- 5. INSERIMENTO CORRETTO DEI TAG CANVAS DENTRO IL CICLO -->
-                    <div class="chart-container">
-                        <!-- SELETTORE PERIODI -->
-                        <div class="period-selector">
-                            <input type="radio" id="1d-{{ ups_name }}" name="period-{{ ups_name }}" value="1d" checked 
-                                onclick="updateChartPeriod('{{ ups_name }}', '1d')">
-                            <label for="1d-{{ ups_name }}">24 Ore</label>
+                    <!-- Contenitore principale dei grafici: Diventa Flexbox e responsive -->
+                    <div class="flex flex-col lg:flex-row gap-4 mb-8" id="{{ ups_name }}-charts-container">
 
-                            <input type="radio" id="1w-{{ ups_name }}" name="period-{{ ups_name }}" value="1w" 
-                                onclick="updateChartPeriod('{{ ups_name }}', '1w')">
-                            <label for="1w-{{ ups_name }}">1 Settimana</label>
-
-                            <input type="radio" id="1m-{{ ups_name }}" name="period-{{ ups_name }}" value="1m" 
-                                onclick="updateChartPeriod('{{ ups_name }}', '1m')">
-                            <label for="1m-{{ ups_name }}">1 Mese</label>
+                        <!-- SELETTORE PERIODI - Lo mettiamo sopra entrambi i grafici o lo separiamo. 
+                            Per semplicità e coesione, lo lasciamo qui, ma lo rendiamo un div separato -->
+                        <div id="{{ ups_name }}-period-buttons" class="w-full flex justify-center space-x-2 p-2 bg-gray-100 rounded-t-lg shadow-inner">
+                            <button data-period="1d" onclick="updateChartPeriod('{{ ups_name }}', '1d')" 
+                                    class="px-3 py-1 text-sm rounded-lg bg-blue-600 text-white transition duration-150">
+                                24 Ore
+                            </button>
+                            <button data-period="1w" onclick="updateChartPeriod('{{ ups_name }}', '1w')" 
+                                    class="px-3 py-1 text-sm rounded-lg bg-white text-gray-700 hover:bg-blue-500 hover:text-white transition duration-150">
+                                1 Settimana
+                            </button>
+                            <button data-period="1m" onclick="updateChartPeriod('{{ ups_name }}', '1m')" 
+                                    class="px-3 py-1 text-sm rounded-lg bg-white text-gray-700 hover:bg-blue-500 hover:text-white transition duration-150">
+                                1 Mese
+                            </button>
                         </div>
-                        <h4>Storico Tensione (Ultime 24h)</h4>
-                        <canvas id="chart-voltage-{{ ups_name }}"></canvas>
                         
-                        <h4>Storico Batteria (Ultime 24h)</h4>
-                        <canvas id="chart-charge-{{ ups_name }}"></canvas>
+                        <!-- Contenitore del Grafico Tensione (Occupa metà larghezza su schermi grandi) -->
+                        <div class="w-full lg:w-1/2 p-4 bg-white shadow-xl rounded-lg h-[400px]">
+                            <h4 class="text-lg font-semibold text-gray-700 mb-3">Storico Tensione</h4>
+                            <!-- Il canvas prenderà il 100% dell'altezza e larghezza del DIV genitore -->
+                            <canvas id="chart-voltage-{{ ups_name }}"></canvas>
+                        </div>
+                        
+                        <!-- Contenitore del Grafico Batteria (Occupa metà larghezza su schermi grandi) -->
+                        <div class="w-full lg:w-1/2 p-4 bg-white shadow-xl rounded-lg h-[400px]">
+                            <h4 class="text-lg font-semibold text-gray-700 mb-3">Storico Batteria</h4>
+                            <!-- Il canvas prenderà il 100% dell'altezza e larghezza del DIV genitore -->
+                            <canvas id="chart-charge-{{ ups_name }}"></canvas>
+                        </div>
                     </div>
 
                 </div> <!-- Chiusura di ups-box -->
