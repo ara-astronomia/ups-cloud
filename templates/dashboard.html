@@ -42,6 +42,11 @@
             border-top: 1px dashed #ddd;
         }
         
+        /* Rimuovo la classe height: 550px dal CSS per usare la classe Tailwind h-[550px] direttamente nell'HTML */
+        .chart-main-container {
+            min-height: 0;
+        }
+
     </style>
     <!-- Inclusione della libreria Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -66,10 +71,11 @@
 </head>
 <body>
 
-    <h2 class="text-3xl font-bold mb-8">
-        <img src="/static/images/logo_ara.png" alt="Logo Ara" class="h-12 inline-block align-middle mr-3" />
-        ⚡ Stato Monitoraggio UPS (via NUT) Osservatorio virginio Cesarini  A.R.A.
-    </h2>
+    <!-- AGGIORNAMENTO: Aggiunto il logo e il testo completo nel titolo H1 -->
+    <h1 class="text-3xl font-bold mb-6">
+        <img src="/static/images/logo_ara.png" alt="Logo Ara" class="h-10 inline-block align-middle mr-3" onerror="this.onerror=null; this.src='https://placehold.co/40x40/007bff/ffffff?text=LOGO';" />
+        ⚡ Stato Monitoraggio UPS (via NUT) Osservatorio virginio Cesarini
+    </h1>
 
     <!-- INIZIO BLOCCO LOGICA GENERALE -->
     {% if 'error' in data %}
@@ -158,23 +164,24 @@
                             </button>
                         </div>
                         
-                        <!-- Contenitore dei grafici con limite di altezza applicato e overflow nascosto -->
-                        <div class="flex flex-col lg:flex-row gap-4 mb-8 overflow-y-hidden" id="{{ ups_name }}-charts-container" style="max-height: 50vh; min-height: 300px;">
+                        <!-- Contenitore principale dei grafici: Altezza fissa di 550px -->
+                        <!-- Rimosso overflow-y-hidden e chart-main-container per usare h-[550px] direttamente -->
+                        <div class="flex flex-col lg:flex-row gap-4 mb-8 h-[350px]" id="{{ ups_name }}-charts-container">
                             
-                            <!-- Contenitore del Grafico Tensione: Flex container verticale -->
-                            <div class="w-full lg:w-1/2 p-4 bg-white shadow-xl rounded-lg h-full min-h-0 flex flex-col">
+                            <!-- Contenitore del Grafico Tensione: Deve avere h-full (height: 100%) per ereditare 550px -->
+                            <div class="w-full lg:w-1/2 p-4 bg-white shadow-xl rounded-lg h-full flex flex-col">
                                 <h4 class="text-lg font-semibold text-gray-700 mb-3">Storico Tensione</h4>
-                                <!-- NUOVO WRAPPER: Prende lo spazio con flex-grow e imposta la posizione relativa -->
+                                <!-- WRAPPER: Prende lo spazio con flex-grow e imposta la posizione relativa -->
                                 <div class="relative flex-grow">
                                     <!-- Canvas: 100% di larghezza e altezza del wrapper -->
                                     <canvas id="chart-voltage-{{ ups_name }}" class="w-full h-full"></canvas>
                                 </div>
                             </div>
                             
-                            <!-- Contenitore del Grafico Batteria: Flex container verticale -->
-                            <div class="w-full lg:w-1/2 p-4 bg-white shadow-xl rounded-lg h-full min-h-0 flex flex-col">
+                            <!-- Contenitore del Grafico Batteria: Deve avere h-full (height: 100%) per ereditare 550px -->
+                            <div class="w-full lg:w-1/2 p-4 bg-white shadow-xl rounded-lg h-full flex flex-col">
                                 <h4 class="text-lg font-semibold text-gray-700 mb-3">Storico Batteria</h4>
-                                <!-- NUOVO WRAPPER: Prende lo spazio con flex-grow e imposta la posizione relativa -->
+                                <!-- WRAPPER: Prende lo spazio con flex-grow e imposta la posizione relativa -->
                                 <div class="relative flex-grow">
                                     <!-- Canvas: 100% di larghezza e altezza del wrapper -->
                                     <canvas id="chart-charge-{{ ups_name }}" class="w-full h-full"></canvas>
