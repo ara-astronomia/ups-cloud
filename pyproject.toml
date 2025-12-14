@@ -1,0 +1,14 @@
+[project]
+name = "ups-cloud"
+version = "0.1.0"
+description = "UPS monitoring dashboard with Flask and NUT"
+requires-python = ">=3.12"
+dependencies = [
+    "flask>=2.3.0",
+    "nut2>=0.4.0",
+    "configparser>=5.0.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
