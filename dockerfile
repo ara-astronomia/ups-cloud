@@ -33,5 +33,5 @@ EXPOSE 5000
 VOLUME ["/app/data"]
 
 # 6. Definisce il comando da eseguire all'avvio del container
-# Usa Gunicorn come WSGI server per produzione
-CMD ["/app/.venv/bin/gunicorn", "--bind", "0.0.0.0:5000", "--workers", "2", "--timeout", "120", "app:app"]
+# Usa Gunicorn come WSGI server per produzione con file di configurazione
+CMD ["/app/.venv/bin/gunicorn", "--config", "gunicorn.conf.py", "app:app"]
