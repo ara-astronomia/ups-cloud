@@ -63,6 +63,11 @@ def init_db():
     conn.commit()
     conn.close()
 
+# Inizializza il database all'avvio per esecuzione diretta (non gunicorn)
+# Con gunicorn, l'inizializzazione avviene tramite gunicorn.conf.py
+if __name__ == '__main__':
+    init_db()
+
 def log_data(name, variables, status):
     """Registra i dati attuali nel database."""
     conn = sqlite3.connect(DATABASE)
@@ -176,13 +181,15 @@ def history_data():
     return jsonify([dict(row) for row in data])
 
 if __name__ == '__main__':
-    init_db() 
-    
-    print("--- Test di connessione a NUT all'avvio ---")
+    # Per esecuzione locale con server di sviluppo
+    # Inizializza DB e testa connessione NUT
+    init_db()
+    print("--- Test di connessione a NUT ---")
     initial_data = get_ups_status()
     if 'error' in initial_data:
-        print(f"ERRORE GRAVE DI CONNESSIONE A NUT ALL'AVVIO: {initial_data['error']}")
+        print(f"ERRORE: {initial_data['error']}")
     else:
-        print("Test di connessione iniziale riuscito.")
-        
+        print("Connessione NUT OK")
+    
+    # In produzione (Docker), usa gunicorn tramite gunicorn.conf.py
     app.run(debug=True, host='0.0.0.0', port=5000)
