@@ -7,6 +7,7 @@ dependencies = [
     "flask>=2.3.0",
     "nut2>=0.4.0",
     "configparser>=5.0.0",
+    "gunicorn>=21.2.0",
 ]
 
 [build-system]

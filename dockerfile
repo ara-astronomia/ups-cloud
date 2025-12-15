@@ -33,5 +33,5 @@ EXPOSE 5000
 VOLUME ["/app/data"]
 
 # 6. Definisce il comando da eseguire all'avvio del container
-# Lancia l'applicazione Flask (usare '0.0.0.0' per rendere l'app eseguibile dall'esterno del container)
-CMD ["uv", "run", "app.py"]
+# Usa Gunicorn come WSGI server per produzione
+CMD ["/app/.venv/bin/gunicorn", "--bind", "0.0.0.0:5000", "--workers", "2", "--timeout", "120", "app:app"]

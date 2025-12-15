@@ -22,7 +22,7 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 ### 2. Installazione delle Dipendenze
 ```bash
 # uv crea automaticamente l'ambiente virtuale e installa le dipendenze
-uv sync
+uv sync --no-install-project
 ```
 
 ### 3. Avvio dell'Applicazione
@@ -42,7 +42,7 @@ cp config.ini.example config.ini
 
 ### Build dell'immagine (piattaforma nativa)
 ```bash
-docker build -t ups-cloud:latest .
+docker build -t araroma/ups-cloud:latest .
 ```
 
 ### Build multi-piattaforma (cross-build per ARM64)
@@ -58,10 +58,10 @@ docker buildx rm multiplatform
 docker buildx create --name multiplatform --driver docker-container --use --bootstrap
 
 # Build per ARM64
-docker buildx build --platform linux/arm64 -t ups-cloud:latest --load .
+docker buildx build --platform linux/arm64 -t araroma/ups-cloud:latest --load .
 
 # Build per multiple piattaforme e push su registry
-docker buildx build --platform linux/amd64,linux/arm64 -t yourusername/ups-cloud:latest --push .
+docker buildx build --platform linux/amd64,linux/arm64 -t araroma/ups-cloud:latest --push .
 ```
 
 ### Esecuzione del container
@@ -73,7 +73,7 @@ docker run -d \
   -p 5000:5000 \
   -v $(pwd)/config.ini:/app/config.ini:ro \
   -v ups-data:/app/data \
-  ups-cloud:latest
+  araroma/ups-cloud:latest
 ```
 
 Per connessione al NUT server sull'host Docker:
@@ -84,13 +84,37 @@ docker run -d \
   -v $(pwd)/config.ini:/app/config.ini:ro \
   -v ups-data:/app/data \
   --add-host=host.docker.internal:host-gateway \
-  ups-cloud:latest
+  araroma/ups-cloud:latest
 ```
 (Nel `config.ini` usa `hostname = host.docker.internal`)
 
+## Esecuzione con Docker Compose
 
+### Configurazione
+Assicurati di avere il file `config.ini` configurato:
+```bash
+cp config.ini.example config.ini
+# Modifica config.ini con i tuoi parametri
+```
 
-Configurazione del Server NUT
+### Avvio con Docker Compose
+```bash
+# Avvia il servizio in background
+docker compose up -d
+
+# Visualizza i log
+docker compose logs -f
+
+# Ferma il servizio
+docker compose down
+
+# Ferma e rimuovi anche i volumi
+docker compose down -v
+```
+
+Per connessione al NUT server sullo stesso host Docker ma non conteinerizzato, decommenta le righe `extra_hosts` nel file `docker-compose.yml` e usa `hostname = host.docker.internal` nel `config.ini`.
+
+## Configurazione del Server NUT
 ```bash
 # /etc/nut/upsd.conf
 

@@ -184,5 +184,7 @@ if __name__ == '__main__':
         print(f"ERRORE GRAVE DI CONNESSIONE A NUT ALL'AVVIO: {initial_data['error']}")
     else:
         print("Test di connessione iniziale riuscito.")
-        
+    
+    # Per esecuzione locale con server di sviluppo
+    # In produzione (Docker), usa gunicorn tramite il Dockerfile
     app.run(debug=True, host='0.0.0.0', port=5000)
