@@ -56,8 +56,8 @@ socketio = SocketIO(
     async_mode='eventlet',
     ping_timeout=60,
     ping_interval=25,
-    logger=True,
-    engineio_logger=True
+    logger=False,
+    engineio_logger=False
 )
 
 def init_db():
@@ -107,15 +107,9 @@ def scheduled_data_logging():
                 except Exception as e:
                     print(f"[Scheduler] Errore parsing dati {name}: {e}")
             
-            print(f"[Scheduler] Dati salvati per {len(ups_names)} UPS alle {time.strftime('%H:%M:%S')}")
-            
-            # Invia i nuovi punti dati via WebSocket - usa il metodo corretto di socketio
+            # Invia i nuovi punti dati via WebSocket
             if new_data_points:
-                try:
-                    socketio.emit('chart_update', new_data_points, namespace='/')
-                    print(f"[Scheduler] Evento chart_update emesso per {len(new_data_points)} UPS")
-                except Exception as e:
-                    print(f"[Scheduler] Errore durante emit: {e}")
+                socketio.emit('chart_update', new_data_points, namespace='/')
             
         except Exception as e:
             print(f"[Scheduler] Errore durante il logging: {e}")
@@ -126,7 +120,6 @@ def broadcast_ups_data():
         try:
             data = get_ups_status()
             socketio.emit('ups_update', data, namespace='/')
-            print(f"[WebSocket] Dati ups_update inviati ai client alle {time.strftime('%H:%M:%S')}")
         except Exception as e:
             print(f"[WebSocket] Errore durante broadcast: {e}")
 
@@ -165,20 +158,17 @@ def get_ups_status():
     
     try:
         client = PyNUTClient(host=NUT_HOST, port=NUT_PORT)
-        print(f"Tentativo di connessione a NUT su {NUT_HOST}:{NUT_PORT}")        
         ups_names = client.list_ups()
         
         for name in ups_names:
             variables = client.list_vars(name)
-            room_name = ROOMS_MAP.get(name.lower(), 'N/D') 
-            print(room_name)
+            room_name = ROOMS_MAP.get(name.lower(), 'N/D')
 
             data[name] = {
                 'vars': variables,
                 'last_update': time.strftime("%H:%M:%S"),
                 'rooms': room_name,
             }
-            print(data)
             
     except Exception as e:
         data['error'] = f"Errore di connessione a NUT: {e}"
@@ -222,15 +212,11 @@ def history_data():
     now = int(time.time())
     
     if period == '1w':
-        time_limit = now - (7 * 24 * 3600) 
-        print(f"Recupero dati storici per {ups_name}: 1 Settimana ({datetime.fromtimestamp(time_limit).strftime('%Y-%m-%d %H:%M:%S')})")
+        time_limit = now - (7 * 24 * 3600)
     elif period == '1m':
-        time_limit = now - (30 * 24 * 3600) 
-        print(f"Recupero dati storici per {ups_name}: 1 Mese ({datetime.fromtimestamp(time_limit).strftime('%Y-%m-%d %H:%M:%S')})")
-    else: 
-        time_limit = now - 86400 
-        print(f"Recupero dati storici per {ups_name}: 24 Ore ({datetime.fromtimestamp(time_limit).strftime('%Y-%m-%d %H:%M:%S')})")
-    
+        time_limit = now - (30 * 24 * 3600)
+    else:
+        time_limit = now - 86400
     # query SQL per limite di tempo e UPS
     data = cursor.execute(
         "SELECT timestamp, input_voltage, battery_charge FROM history WHERE ups_name=? AND timestamp > ? ORDER BY timestamp", 
@@ -265,13 +251,7 @@ def start_scheduler():
         id='ups_broadcast'
     )
     scheduler.start()
-    print("[Scheduler] APScheduler avviato nel worker process")
     atexit.register(lambda: scheduler.shutdown())
-
-# Avvia scheduler alla prima richiesta
-@app.before_request
-def before_first_request():
-    start_scheduler()
 
 if __name__ == '__main__':
     # Per esecuzione locale con server di sviluppo

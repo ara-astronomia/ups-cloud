@@ -36,4 +36,14 @@ def on_starting(server):
         print("Test di connessione NUT riuscito")
     
     print("=== Inizializzazione completata ===")
-    print("NOTA: Background tasks WebSocket gestiti da Flask-SocketIO")
+
+def post_worker_init(worker):
+    """
+    Hook eseguito dopo l'inizializzazione di ogni worker.
+    Avvia lo scheduler APScheduler nel contesto del worker.
+    """
+    from app import start_scheduler
+    
+    print(f"[Worker {worker.pid}] Inizializzazione scheduler APScheduler")
+    start_scheduler()
+    print(f"[Worker {worker.pid}] Scheduler avviato")

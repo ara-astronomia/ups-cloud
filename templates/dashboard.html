@@ -229,8 +229,6 @@
         
         // Ricevi aggiornamenti real-time
         socket.on('ups_update', function(data) {
-            console.log('📡 Aggiornamento ricevuto:', data);
-            
             if (data.error) {
                 console.error('Errore:', data.error);
                 return;
@@ -268,15 +266,11 @@
         
         // Listener per aggiornamenti grafici
         socket.on('chart_update', function(newDataPoints) {
-            console.log('📊 Aggiornamento grafici ricevuto:', newDataPoints);
-            console.log('Tipo di addDataPointToCharts:', typeof window.addDataPointToCharts);
-            
             Object.keys(newDataPoints).forEach(function(upsName) {
                 const dataPoint = newDataPoints[upsName];
                 
                 // Verifica che la funzione esista (chart.js caricato)
                 if (typeof window.addDataPointToCharts === 'function') {
-                    console.log(`Chiamata addDataPointToCharts per ${upsName}`);
                     window.addDataPointToCharts(upsName, dataPoint);
                 } else {
                     console.error('❌ addDataPointToCharts non trovata!');

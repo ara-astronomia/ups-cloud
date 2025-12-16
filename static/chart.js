@@ -10,8 +10,6 @@ const upsCurrentPeriod = {};
  * @param {Object} dataPoint - Dati: {timestamp, input_voltage, battery_charge}
  */
 window.addDataPointToCharts = function addDataPointToCharts(upsName, dataPoint) {
-    console.log(`Tentativo di aggiornare grafico per ${upsName}:`, dataPoint);
-    
     const voltageChartId = 'chart-voltage-' + upsName;
     const chargeChartId = 'chart-charge-' + upsName;
     
@@ -61,8 +59,6 @@ window.addDataPointToCharts = function addDataPointToCharts(upsName, dataPoint) 
         
         chargeChart.update('none');
     }
-    
-    console.log(`✅ Grafici aggiornati per ${upsName}`);
 }
 
 document.addEventListener('DOMContentLoaded', function() {
