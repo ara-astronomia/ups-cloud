@@ -2,9 +2,12 @@ import time
 import configparser 
 from datetime import datetime
 from flask import Flask, render_template, request, jsonify
+from flask_socketio import SocketIO, emit
 from nut2 import PyNUTClient
 import os
 import sqlite3
+from apscheduler.schedulers.background import BackgroundScheduler
+import atexit
 
 config = configparser.ConfigParser()
 BASE_DIR = os.path.dirname(os.path.abspath(__file__)) 
@@ -14,7 +17,7 @@ CONFIG_PATH = os.path.join(BASE_DIR, 'config.ini')
 DEFAULT_HOST = 'localhost'
 DEFAULT_PORT = 3493
 
-DATABASE = 'ups_data.db'
+DATABASE = '/app/data/db/ups_data.db'
 
 
 try:
@@ -47,6 +50,15 @@ except Exception as e:
 #print(f"Configurazione NUT letta: HOST={NUT_HOST}, PORT={NUT_PORT}")
 # --- SERVER FLASK ---
 app = Flask(__name__)
+socketio = SocketIO(
+    app, 
+    cors_allowed_origins="*", 
+    async_mode='eventlet',
+    ping_timeout=60,
+    ping_interval=25,
+    logger=True,
+    engineio_logger=True
+)
 
 def init_db():
     conn = sqlite3.connect(DATABASE)
@@ -67,6 +79,56 @@ def init_db():
 # Con gunicorn, l'inizializzazione avviene tramite gunicorn.conf.py
 if __name__ == '__main__':
     init_db()
+
+def scheduled_data_logging():
+    """Funzione eseguita periodicamente per salvare i dati UPS nel database."""
+    with app.app_context():
+        try:
+            client = PyNUTClient(host=NUT_HOST, port=NUT_PORT)
+            ups_names = client.list_ups()
+            
+            timestamp = int(time.time())
+            new_data_points = {}
+            
+            for name in ups_names:
+                variables = client.list_vars(name)
+                log_data(name, variables, status=variables.get('ups.status', 'unknown'))
+                
+                # Prepara i dati per il broadcast ai grafici
+                try:
+                    input_voltage = float(variables.get('input.voltage', '0.0').split(' ')[0])
+                    battery_charge = float(variables.get('battery.charge', '0.0').split(' ')[0])
+                    
+                    new_data_points[name] = {
+                        'timestamp': timestamp,
+                        'input_voltage': input_voltage,
+                        'battery_charge': battery_charge
+                    }
+                except Exception as e:
+                    print(f"[Scheduler] Errore parsing dati {name}: {e}")
+            
+            print(f"[Scheduler] Dati salvati per {len(ups_names)} UPS alle {time.strftime('%H:%M:%S')}")
+            
+            # Invia i nuovi punti dati via WebSocket - usa il metodo corretto di socketio
+            if new_data_points:
+                try:
+                    socketio.emit('chart_update', new_data_points, namespace='/')
+                    print(f"[Scheduler] Evento chart_update emesso per {len(new_data_points)} UPS")
+                except Exception as e:
+                    print(f"[Scheduler] Errore durante emit: {e}")
+            
+        except Exception as e:
+            print(f"[Scheduler] Errore durante il logging: {e}")
+
+def broadcast_ups_data():
+    """Invia aggiornamenti real-time via WebSocket a tutti i client connessi."""
+    with app.app_context():
+        try:
+            data = get_ups_status()
+            socketio.emit('ups_update', data, namespace='/')
+            print(f"[WebSocket] Dati ups_update inviati ai client alle {time.strftime('%H:%M:%S')}")
+        except Exception as e:
+            print(f"[WebSocket] Errore durante broadcast: {e}")
 
 def log_data(name, variables, status):
     """Registra i dati attuali nel database."""
@@ -110,7 +172,6 @@ def get_ups_status():
             variables = client.list_vars(name)
             room_name = ROOMS_MAP.get(name.lower(), 'N/D') 
             print(room_name)
-            log_data(name, variables, status=variables.get('ups.status', 'unknown'))
 
             data[name] = {
                 'vars': variables,
@@ -180,6 +241,38 @@ def history_data():
     
     return jsonify([dict(row) for row in data])
 
+# Inizializza scheduler APScheduler quando il modulo viene caricato (nei worker)
+# Usa una variabile globale per evitare avvii multipli
+_scheduler_started = False
+
+def start_scheduler():
+    global _scheduler_started
+    if _scheduler_started:
+        return
+    
+    _scheduler_started = True
+    scheduler = BackgroundScheduler(daemon=True)
+    scheduler.add_job(
+        func=scheduled_data_logging,
+        trigger='interval',
+        minutes=5,
+        id='ups_data_logging'
+    )
+    scheduler.add_job(
+        func=broadcast_ups_data,
+        trigger='interval',
+        seconds=10,
+        id='ups_broadcast'
+    )
+    scheduler.start()
+    print("[Scheduler] APScheduler avviato nel worker process")
+    atexit.register(lambda: scheduler.shutdown())
+
+# Avvia scheduler alla prima richiesta
+@app.before_request
+def before_first_request():
+    start_scheduler()
+
 if __name__ == '__main__':
     # Per esecuzione locale con server di sviluppo
     # Inizializza DB e testa connessione NUT
@@ -191,5 +284,30 @@ if __name__ == '__main__':
     else:
         print("Connessione NUT OK")
     
+    # Avvia scheduler per logging automatico
+    scheduler = BackgroundScheduler()
+    scheduler.add_job(
+        func=scheduled_data_logging,
+        trigger='interval',
+        minutes=5,
+        id='ups_data_logging'
+    )
+    scheduler.start()
+    print("Scheduler avviato: logging dati ogni 5 minuti")
+    
+    # Primo logging immediato
+    scheduled_data_logging()
+    
+    # Aggiungi job per broadcast WebSocket ogni 10 secondi
+    scheduler.add_job(
+        func=broadcast_ups_data,
+        trigger='interval',
+        seconds=10,
+        id='ups_broadcast'
+    )
+    
+    # Shutdown pulito
+    atexit.register(lambda: scheduler.shutdown())
+    
     # In produzione (Docker), usa gunicorn tramite gunicorn.conf.py
-    app.run(debug=True, host='0.0.0.0', port=5000)
+    socketio.run(app, debug=True, host='0.0.0.0', port=5000)

@@ -7,7 +7,8 @@ sys.path.insert(0, os.path.dirname(__file__))
 
 # Configurazione server
 bind = "0.0.0.0:5000"
-workers = 2
+workers = 1  # SocketIO richiede 1 worker con eventlet
+worker_class = "eventlet"  # Worker class per WebSocket
 timeout = 120
 loglevel = "info"
 accesslog = "-"
@@ -35,3 +36,4 @@ def on_starting(server):
         print("Test di connessione NUT riuscito")
     
     print("=== Inizializzazione completata ===")
+    print("NOTA: Background tasks WebSocket gestiti da Flask-SocketIO")

@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Monitoraggio UPS - NUT</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
     <style>
         body { font-family: sans-serif; margin: 20px; background-color: #f4f4f9; }
         
@@ -107,7 +108,7 @@
                     <!-- 3. CORREZIONE: Stile del nome dell'UPS (UPS Name è la variabile ups_name) -->
                     <h2>UPS {{ ups_info.rooms }} : <span style="font-weight: bold; color: #007bff;">{{ ups_name }}</span></h2>
                     
-                    <p>Ultimo Aggiornamento: {{ ups_info.last_update }}</p>
+                    <p>Ultimo Aggiornamento: <span data-ups-time="{{ ups_name }}">{{ ups_info.last_update }}</span></p>
 
                     <h3>Stato Corrente (Flags)</h3>
                     {% set status_text = ups_info.vars['ups.status'] | default('Sconosciuto') | replace(' ', ', ') %}
@@ -139,7 +140,7 @@
                                 {% if detail == 'full' or var_name in vars_to_show %}
                                 <tr>
                                     <td>{{ var_name }}</td>
-                                    <td>{{ var_value }}</td>
+                                    <td id="val-{{ ups_name }}-{{ var_name.replace('.', '_') }}" class="transition-colors duration-500">{{ var_value }}</td>
                                 </tr>
                                 {% endif %}
                             {% endfor %}
@@ -195,6 +196,94 @@
         </div> <!-- Chiusura di ups-grid-container -->
         
     {% endif %}
+
+    <!-- WebSocket Real-Time Updates -->
+    <script>
+        // Connessione WebSocket con opzioni di reconnection
+        const socket = io({
+            reconnection: true,
+            reconnectionDelay: 1000,
+            reconnectionAttempts: Infinity,
+            transports: ['websocket', 'polling']
+        });
+        
+        socket.on('connect', function() {
+            console.log('✅ WebSocket connesso - ID:', socket.id);
+        });
+        
+        socket.on('disconnect', function(reason) {
+            console.log('❌ WebSocket disconnesso - Motivo:', reason);
+        });
+        
+        socket.on('connect_error', function(error) {
+            console.error('⚠️ Errore connessione WebSocket:', error);
+        });
+        
+        socket.on('reconnect_attempt', function() {
+            console.log('🔄 Tentativo di riconnessione...');
+        });
+        
+        socket.on('reconnect', function(attemptNumber) {
+            console.log('✅ Riconnesso dopo', attemptNumber, 'tentativi');
+        });
+        
+        // Ricevi aggiornamenti real-time
+        socket.on('ups_update', function(data) {
+            console.log('📡 Aggiornamento ricevuto:', data);
+            
+            if (data.error) {
+                console.error('Errore:', data.error);
+                return;
+            }
+            
+            // Aggiorna ogni UPS nella pagina
+            Object.keys(data).forEach(function(upsName) {
+                const upsData = data[upsName];
+                updateUpsDisplay(upsName, upsData);
+            });
+        });
+        
+        function updateUpsDisplay(upsName, upsData) {
+            // Aggiorna timestamp
+            const timeElements = document.querySelectorAll('[data-ups-time="' + upsName + '"]');
+            timeElements.forEach(function(el) {
+                el.textContent = upsData.last_update;
+            });
+            
+            // Aggiorna valori nelle tabelle
+            const vars = upsData.vars;
+            Object.keys(vars).forEach(function(varName) {
+                const cellId = 'val-' + upsName + '-' + varName.replace(/\./g, '_');
+                const cell = document.getElementById(cellId);
+                if (cell) {
+                    cell.textContent = vars[varName];
+                    // Animazione flash per evidenziare il cambiamento
+                    cell.classList.add('bg-yellow-200');
+                    setTimeout(function() {
+                        cell.classList.remove('bg-yellow-200');
+                    }, 500);
+                }
+            });
+        }
+        
+        // Listener per aggiornamenti grafici
+        socket.on('chart_update', function(newDataPoints) {
+            console.log('📊 Aggiornamento grafici ricevuto:', newDataPoints);
+            console.log('Tipo di addDataPointToCharts:', typeof window.addDataPointToCharts);
+            
+            Object.keys(newDataPoints).forEach(function(upsName) {
+                const dataPoint = newDataPoints[upsName];
+                
+                // Verifica che la funzione esista (chart.js caricato)
+                if (typeof window.addDataPointToCharts === 'function') {
+                    console.log(`Chiamata addDataPointToCharts per ${upsName}`);
+                    window.addDataPointToCharts(upsName, dataPoint);
+                } else {
+                    console.error('❌ addDataPointToCharts non trovata!');
+                }
+            });
+        });
+    </script>
 
 </body>
 </html>

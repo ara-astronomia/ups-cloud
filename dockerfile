@@ -29,9 +29,6 @@ RUN mkdir -p /app/data
 # 4. Espone la porta che Flask userà
 EXPOSE 5000
 
-# 5. Volume per la persistenza del database SQLite
-VOLUME ["/app/data"]
-
-# 6. Definisce il comando da eseguire all'avvio del container
+# 5. Definisce il comando da eseguire all'avvio del container
 # Usa Gunicorn come WSGI server per produzione con file di configurazione
 CMD ["/app/.venv/bin/gunicorn", "--config", "gunicorn.conf.py", "app:app"]

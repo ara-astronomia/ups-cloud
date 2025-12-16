@@ -1,6 +1,70 @@
 // Struttura dati per memorizzare le istanze dei grafici Chart.js
 const upsCharts = {};
 
+// Traccia il periodo attualmente visualizzato per ogni UPS
+const upsCurrentPeriod = {};
+
+/**
+ * Aggiunge un nuovo punto dati ai grafici di un UPS specifico
+ * @param {string} upsName - Nome dell'UPS
+ * @param {Object} dataPoint - Dati: {timestamp, input_voltage, battery_charge}
+ */
+window.addDataPointToCharts = function addDataPointToCharts(upsName, dataPoint) {
+    console.log(`Tentativo di aggiornare grafico per ${upsName}:`, dataPoint);
+    
+    const voltageChartId = 'chart-voltage-' + upsName;
+    const chargeChartId = 'chart-charge-' + upsName;
+    
+    const timestampMs = dataPoint.timestamp * 1000;
+    
+    // Determina il periodo attivo per questo UPS (default: 1d)
+    const currentPeriod = upsCurrentPeriod[upsName] || '1d';
+    
+    // Calcola cutoff time basato sul periodo
+    let cutoffTime;
+    if (currentPeriod === '1w') {
+        cutoffTime = Date.now() - (7 * 24 * 60 * 60 * 1000);
+    } else if (currentPeriod === '1m') {
+        cutoffTime = Date.now() - (30 * 24 * 60 * 60 * 1000);
+    } else { // '1d'
+        cutoffTime = Date.now() - (24 * 60 * 60 * 1000);
+    }
+    
+    // Aggiorna grafico tensione
+    const voltageChart = upsCharts[voltageChartId];
+    if (voltageChart && dataPoint.input_voltage > 0) {
+        voltageChart.data.datasets[0].data.push({
+            x: timestampMs,
+            y: dataPoint.input_voltage
+        });
+        
+        // Rimuovi solo punti fuori dal periodo visualizzato
+        voltageChart.data.datasets[0].data = voltageChart.data.datasets[0].data.filter(
+            point => point.x > cutoffTime
+        );
+        
+        voltageChart.update('none');
+    }
+    
+    // Aggiorna grafico batteria
+    const chargeChart = upsCharts[chargeChartId];
+    if (chargeChart && dataPoint.battery_charge > 0) {
+        chargeChart.data.datasets[0].data.push({
+            x: timestampMs,
+            y: dataPoint.battery_charge
+        });
+        
+        // Rimuovi solo punti fuori dal periodo visualizzato
+        chargeChart.data.datasets[0].data = chargeChart.data.datasets[0].data.filter(
+            point => point.x > cutoffTime
+        );
+        
+        chargeChart.update('none');
+    }
+    
+    console.log(`✅ Grafici aggiornati per ${upsName}`);
+}
+
 document.addEventListener('DOMContentLoaded', function() {
     
     // Controlla se l'oggetto è stato definito correttamente
@@ -15,6 +79,8 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Avvia il caricamento dei grafici per tutti gli UPS
     Object.keys(allUpsData).forEach(upsName => {
+        // Imposta periodo di default
+        upsCurrentPeriod[upsName] = '1d';
         loadChart(upsName);
     });
 });
@@ -204,6 +270,9 @@ async function updateChartPeriod(upsName, period) {
         activeBtn.classList.remove('bg-white', 'text-gray-700', 'hover:bg-blue-500', 'hover:text-white');
         activeBtn.classList.add('bg-blue-600', 'text-white');
     }
+    
+    // Aggiorna il periodo corrente per questo UPS
+    upsCurrentPeriod[upsName] = period;
     
     // FINE Gestione UI pulsanti
 
